@@ -1,8 +1,15 @@
-
-  {
-      "name": "FlexWise Fehlzeiten Dashboard",
-      "version": "0.1.0",
-      "private": true,
+{
+    "name": "my-section-starter",
+    "version": "0.0.1",
+    "scripts": {
+        "build": "weweb build",
+        "serve": "weweb serve"
+    },
+    "dependencies": {},
+    "devDependencies": {
+        "@weweb/cli": "latest"
+    }
+}
       "dependencies": {
           "@radix-ui/react-accordion": "^1.2.3",
           "@radix-ui/react-alert-dialog": "^1.1.6",
