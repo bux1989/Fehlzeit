@@ -1,130 +1,184 @@
 <template>
   <div class="ww-fehlzeiten-dashboard">
     <!-- Loading State -->
-    <div v-if="content.isLoading" class="flex items-center justify-center p-8">
+    <div v-if="content?.isLoading" class="flex items-center justify-center p-8">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      <span class="ml-3 text-gray-600">{{ content.loadingText || 'Lädt Daten...' }}</span>
+      <span class="ml-3 text-gray-600">{{ content?.loadingText || 'Lädt Daten...' }}</span>
     </div>
-    
+
     <!-- Error State -->
-    <div v-else-if="content.error" class="p-6 border border-red-200 rounded-lg bg-red-50">
+    <div v-else-if="content?.error" class="p-6 border border-red-200 rounded-lg bg-red-50">
       <div class="flex items-center">
         <svg class="w-5 h-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
         </svg>
-        <span class="text-red-800">{{ content.error }}</span>
+        <span class="text-red-800">{{ content?.error }}</span>
       </div>
     </div>
-    
+
     <!-- Empty State -->
-    <div v-else-if="!content.data || content.data.length === 0" class="text-center p-8 text-gray-500">
+    <div v-else-if="!content?.data || content?.data.length === 0" class="text-center p-8 text-gray-500">
       <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
       </svg>
-      <p>{{ content.emptyText || 'Keine Fehlzeiten vorhanden' }}</p>
+      <p>{{ content?.emptyText || 'Keine Fehlzeiten vorhanden' }}</p>
     </div>
-    
+
     <!-- React App Container -->
     <div v-else ref="reactContainer" class="ww-react-container"></div>
   </div>
 </template>
 
 <script>
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import FehlzeitenPageWrapper from './FehlzeitenPageWrapper.tsx';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 
 export default {
-  name: 'wwFehlzeitenDashboard',
   props: {
-    content: { type: Object, default: () => ({}) }
+    content: { 
+      type: Object, 
+      default: () => ({}) 
+    },
+    uid: { 
+      type: String, 
+      required: true 
+    },
+    /* wwEditor:start */
+    wwEditorState: { 
+      type: Object, 
+      required: true 
+    },
+    /* wwEditor:end */
   },
-  data() {
-    return {
-      reactMounted: false,
-      reactRoot: null
+  emits: ['trigger-event'],
+  setup(props, { emit }) {
+    const reactContainer = ref(null);
+    const reactMounted = ref(false);
+    let reactRoot = null;
+
+    // Editor state
+    const isEditing = computed(() => {
+      /* wwEditor:start */
+      return props.wwEditorState?.isEditing;
+      /* wwEditor:end */
+      // eslint-disable-next-line no-unreachable
+      return false;
+    });
+
+    const reactProps = computed(() => ({
+      data: props.content?.data || [],
+      availableClasses: props.content?.availableClasses || [],
+      currentUser: props.content?.currentUser || null,
+      readonly: props.content?.readonly || false,
+      isEditing: isEditing.value,
+      onAddEntry: handleAddEntry,
+      onEditEntry: handleEditEntry,
+      onDeleteEntry: handleDeleteEntry,
+      onFilterChange: handleFilterChange,
+      onSortChange: handleSortChange,
+      onError: handleError
+    }));
+
+    // Dynamic import of React and ReactDOM to avoid build issues
+    const loadReactDependencies = async () => {
+      try {
+        const React = await import('react');
+        const ReactDOM = await import('react-dom/client');
+
+        // Dynamic import of the React component
+        const FehlzeitenModule = await import('./FehlzeitenPageWrapper');
+        const FehlzeitenPageWrapper = FehlzeitenModule.default;
+
+        return { React, ReactDOM, FehlzeitenPageWrapper };
+      } catch (error) {
+        console.error('Failed to load React dependencies:', error);
+        handleError(error);
+        return null;
+      }
     };
-  },
-  computed: {
-    reactProps() {
-      return {
-        data: this.content.data || [],
-        availableClasses: this.content.availableClasses || [],
-        currentUser: this.content.currentUser || null,
-        readonly: this.content.readonly || false,
-        onAddEntry: this.handleAddEntry,
-        onEditEntry: this.handleEditEntry,
-        onDeleteEntry: this.handleDeleteEntry,
-        onFilterChange: this.handleFilterChange,
-        onSortChange: this.handleSortChange,
-        onError: this.handleError
-      };
-    }
-  },
-  mounted() {
-    this.mountReactComponent();
-  },
-  beforeUnmount() {
-    if (this.reactMounted && this.reactRoot) {
-      this.reactRoot.unmount();
-      this.reactRoot = null;
-      this.reactMounted = false;
-    }
-  },
-  watch: {
-    reactProps: {
-      deep: true,
-      handler() {
-        if (this.reactMounted && this.content.data && this.content.data.length > 0) {
-          this.updateReactComponent();
-        }
+
+    const mountReactComponent = async () => {
+      if (!reactContainer.value) return;
+
+      const deps = await loadReactDependencies();
+      if (!deps) return;
+
+      const { React, ReactDOM, FehlzeitenPageWrapper } = deps;
+
+      if (!reactRoot) {
+        reactRoot = ReactDOM.createRoot(reactContainer.value);
       }
-    }
-  },
-  methods: {
-    mountReactComponent() {
-      if (!this.$refs.reactContainer || !FehlzeitenPageWrapper) return;
-      
-      if (!this.reactRoot) {
-        this.reactRoot = createRoot(this.$refs.reactContainer);
-      }
-      
-      const element = React.createElement(FehlzeitenPageWrapper, this.reactProps);
-      this.reactRoot.render(element);
-      this.reactMounted = true;
-    },
-    
-    updateReactComponent() {
-      if (!this.reactMounted || !this.reactRoot || !FehlzeitenPageWrapper) return;
-      
-      const element = React.createElement(FehlzeitenPageWrapper, this.reactProps);
-      this.reactRoot.render(element);
-    },
-    
+
+      const element = React.createElement(FehlzeitenPageWrapper, reactProps.value);
+      reactRoot.render(element);
+      reactMounted.value = true;
+    };
+
+    const updateReactComponent = async () => {
+      if (!reactMounted.value || !reactRoot) return;
+
+      const deps = await loadReactDependencies();
+      if (!deps) return;
+
+      const { React, FehlzeitenPageWrapper } = deps;
+
+      const element = React.createElement(FehlzeitenPageWrapper, reactProps.value);
+      reactRoot.render(element);
+    };
+
     // Event handlers that emit WeWeb events
-    handleAddEntry() {
-      this.$emit('trigger-event', { name: 'addEntry', event: {} });
-    },
-    
-    handleEditEntry(entry) {
-      this.$emit('trigger-event', { name: 'editEntry', event: { entry } });
-    },
-    
-    handleDeleteEntry(entryId) {
-      this.$emit('trigger-event', { name: 'deleteEntry', event: { entryId } });
-    },
-    
-    handleFilterChange(filters) {
-      this.$emit('trigger-event', { name: 'filterChange', event: { filters } });
-    },
-    
-    handleSortChange(sortConfig) {
-      this.$emit('trigger-event', { name: 'sortChange', event: { sortConfig } });
-    },
-    
-    handleError(error) {
-      this.$emit('trigger-event', { name: 'error', event: { error } });
-    }
+    const handleAddEntry = () => {
+      if (isEditing.value) return;
+      emit('trigger-event', { name: 'addEntry', event: {} });
+    };
+
+    const handleEditEntry = (entry) => {
+      if (isEditing.value) return;
+      emit('trigger-event', { name: 'editEntry', event: { entry } });
+    };
+
+    const handleDeleteEntry = (entryId) => {
+      if (isEditing.value) return;
+      emit('trigger-event', { name: 'deleteEntry', event: { entryId } });
+    };
+
+    const handleFilterChange = (filters) => {
+      if (isEditing.value) return;
+      emit('trigger-event', { name: 'filterChange', event: { filters } });
+    };
+
+    const handleSortChange = (sortConfig) => {
+      if (isEditing.value) return;
+      emit('trigger-event', { name: 'sortChange', event: { sortConfig } });
+    };
+
+    const handleError = (error) => {
+      emit('trigger-event', { name: 'error', event: { error: error?.message || String(error) } });
+    };
+
+    // Lifecycle hooks
+    onMounted(() => {
+      mountReactComponent();
+    });
+
+    onBeforeUnmount(() => {
+      if (reactMounted.value && reactRoot) {
+        reactRoot.unmount();
+        reactRoot = null;
+        reactMounted.value = false;
+      }
+    });
+
+    // Watch for changes in reactProps
+    watch(() => reactProps.value, () => {
+      if (reactMounted.value && props.content?.data && props.content?.data.length > 0) {
+        updateReactComponent();
+      }
+    }, { deep: true });
+
+    return {
+      reactContainer,
+      reactMounted
+    };
   }
 };
 </script>
@@ -140,7 +194,7 @@ export default {
 }
 
 /* Ensure Tailwind styles work */
-.ww-react-container :global(*) {
+.ww-react-container :deep(*) {
   box-sizing: border-box;
 }
 </style>
