@@ -3,7 +3,7 @@
     <!-- Loading State -->
     <div v-if="isLoading" class="loading-container">
       <div class="loading-spinner"></div>
-      <span>Loading...</span>
+      <span>{{ safeContent.loadingText }}</span>
     </div>
 
     <!-- Error State -->
@@ -21,6 +21,9 @@
           React ready: <strong>{{ reactAvailable ? 'yes' : 'no' }}</strong> ·
           Mounted: <strong>{{ reactMounted ? 'yes' : 'no' }}</strong>
         </p>
+
+        <!-- Extra: show data length to confirm safeContent is an array -->
+        <p class="mt-2 text-xs">Data items: {{ safeContent.data.length }}</p>
       </div>
     </div>
   </div>
