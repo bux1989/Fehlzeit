@@ -32,6 +32,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 export default {
   name: 'ReactMountStep1',
   props: {
+    // WeWeb may still pass null, so we normalize in computed below
     content: { type: Object, default: () => ({}) },
     uid: { type: String, required: true },
     /* wwEditor:start */
@@ -47,21 +48,48 @@ export default {
     const reactAvailable = ref(false);
     let reactRoot = null;
 
+    // Normalize content so no consumer ever reads null
+    const safeContent = computed(() => {
+      const c = (props.content && typeof props.content === 'object') ? props.content : {};
+      return {
+        isLoading: !!c.isLoading,
+        error: (c.error ?? ''),
+        loadingText: (typeof c.loadingText === 'string' ? c.loadingText : 'Lädt Daten...'),
+        emptyText: (typeof c.emptyText === 'string' ? c.emptyText : 'Keine Fehlzeiten vorhanden'),
+        // always an array
+        data: Array.isArray(c.data) ? c.data : [],
+        availableClasses: Array.isArray(c.availableClasses) ? c.availableClasses : [],
+        currentUser: c.currentUser ?? null,
+        readonly: !!c.readonly,
+      };
+    });
+
     const isEditing = computed(() => {
       /* wwEditor:start */
-      return props.wwEditorState?.isEditing;
+      return !!props.wwEditorState?.isEditing;
       /* wwEditor:end */
       // eslint-disable-next-line no-unreachable
       return false;
     });
 
-    const isLoading = computed(() => loadingState.value || props.content?.isLoading);
-    const error = computed(() => errorState.value || props.content?.error);
+    const isLoading = computed(() => loadingState.value || safeContent.value.isLoading);
+    const error = computed(() => errorState.value || safeContent.value.error);
+
+    const emitSafe = (name, eventObj) => {
+      // ensure an object for WeWeb's internal Object.keys usage
+      const payload = (eventObj && typeof eventObj === 'object') ? eventObj : {};
+      try {
+        emit('trigger-event', { name, event: payload });
+      } catch (e) {
+        // never throw to WeWeb
+        console.error('[ReactMountStep1] emit error', e);
+      }
+    };
 
     const handleButtonClick = () => {
       if (isEditing.value) return;
       console.log('[ReactMountStep1] Button clicked!');
-      emit('trigger-event', { name: 'buttonClick', event: { message: 'Button clicked!' } });
+      emitSafe('buttonClick', { message: 'Button clicked!' });
     };
 
     onMounted(() => {
@@ -75,7 +103,7 @@ export default {
       reactAvailable.value = !!hasReact;
       console.log('[ReactMountStep1] React available?', hasReact);
 
-      emit('trigger-event', { name: 'reactReady', event: { available: !!hasReact } });
+      emitSafe('reactReady', { available: !!hasReact });
 
       if (!hasReact) {
         console.warn('[ReactMountStep1] No React detected on window — keeping Vue placeholder.');
@@ -101,11 +129,11 @@ export default {
         reactMounted.value = true;
 
         console.log('[ReactMountStep1] React mounted successfully.');
-        emit('trigger-event', { name: 'reactMounted', event: { mounted: true } });
+        emitSafe('reactMounted', { mounted: true });
       } catch (e) {
         errorState.value = `React mount failed: ${e?.message || String(e)}`;
         console.error('[ReactMountStep1] React mount failed:', e);
-        emit('trigger-event', { name: 'error', event: { error: errorState.value } });
+        emitSafe('error', { error: errorState.value });
       }
     });
 
@@ -117,7 +145,7 @@ export default {
           reactRoot.unmount?.();
           reactRoot = null;
           reactMounted.value = false;
-          emit('trigger-event', { name: 'reactMounted', event: { mounted: false } });
+          emitSafe('reactMounted', { mounted: false });
         }
       } catch (e) {
         console.error('[ReactMountStep1] Error during unmount:', e);
@@ -126,6 +154,7 @@ export default {
 
     return {
       reactContainer,
+      safeContent,
       isLoading,
       error,
       handleButtonClick,
@@ -135,7 +164,6 @@ export default {
   }
 };
 </script>
-
 
 <style scoped>
 .react-app-wrapper { width: 100%; min-height: 200px; position: relative; }
