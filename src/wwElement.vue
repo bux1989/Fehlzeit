@@ -1,29 +1,36 @@
 <template>
-  <div class="react-app-wrapper">
+  <div class="ww-fehlzeiten-dashboard">
     <!-- Loading State -->
-    <div v-if="isLoading" class="loading-container">
-      <div class="loading-spinner"></div>
-      <span>Loading...</span>
+    <div v-if="content?.isLoading" class="flex items-center justify-center p-8">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <span class="ml-3 text-gray-600">{{ content?.loadingText || 'Lädt Daten...' }}</span>
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="error-container">
-      <span>{{ error }}</span>
+    <div v-else-if="content?.error" class="p-6 border border-red-200 rounded-lg bg-red-50">
+      <div class="flex items-center">
+        <svg class="w-5 h-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+        </svg>
+        <span class="text-red-800">{{ content?.error }}</span>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div v-else-if="!content?.data || content?.data.length === 0" class="text-center p-8 text-gray-500">
+      <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+      </svg>
+      <p>{{ content?.emptyText || 'Keine Fehlzeiten vorhanden' }}</p>
     </div>
 
     <!-- React App Container -->
-    <div v-else ref="reactContainer" class="react-container">
-      <div class="fallback-content">
-        <h2>React Component Placeholder</h2>
-        <p>This is a placeholder for the React component.</p>
-        <button @click="handleButtonClick" class="demo-button">Click Me</button>
-      </div>
-    </div>
+    <div v-else ref="reactContainer" class="ww-react-container"></div>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 
 export default {
   props: {
@@ -45,8 +52,8 @@ export default {
   emits: ['trigger-event'],
   setup(props, { emit }) {
     const reactContainer = ref(null);
-    const loadingState = ref(false);
-    const errorState = ref('');
+    const reactMounted = ref(false);
+    let reactRoot = null;
 
     // Editor state
     const isEditing = computed(() => {
@@ -57,106 +64,137 @@ export default {
       return false;
     });
 
-    const isLoading = computed(() => loadingState.value || props.content?.isLoading);
-    const error = computed(() => errorState.value || props.content?.error);
+    const reactProps = computed(() => ({
+      data: props.content?.data || [],
+      availableClasses: props.content?.availableClasses || [],
+      currentUser: props.content?.currentUser || null,
+      readonly: props.content?.readonly || false,
+      isEditing: isEditing.value,
+      onAddEntry: handleAddEntry,
+      onEditEntry: handleEditEntry,
+      onDeleteEntry: handleDeleteEntry,
+      onFilterChange: handleFilterChange,
+      onSortChange: handleSortChange,
+      onError: handleError
+    }));
 
-    // Handle button click
-    const handleButtonClick = () => {
-      if (isEditing.value) return;
+    // Dynamic import of React and ReactDOM to avoid build issues
+    const loadReactDependencies = async () => {
+      try {
+        const React = await import('react');
+        const ReactDOM = await import('react-dom/client');
 
-      emit('trigger-event', { 
-        name: 'buttonClick', 
-        event: { message: 'Button clicked!' } 
-      });
+        // Dynamic import of the React component
+        const FehlzeitenModule = await import('./FehlzeitenPageWrapper');
+        const FehlzeitenPageWrapper = FehlzeitenModule.default;
+
+        return { React, ReactDOM, FehlzeitenPageWrapper };
+      } catch (error) {
+        console.error('Failed to load React dependencies:', error);
+        handleError(error);
+        return null;
+      }
     };
 
-    // In a real implementation, we would load React here
-    // For now, we'll just use a placeholder
+    const mountReactComponent = async () => {
+      if (!reactContainer.value) return;
+
+      const deps = await loadReactDependencies();
+      if (!deps) return;
+
+      const { React, ReactDOM, FehlzeitenPageWrapper } = deps;
+
+      if (!reactRoot) {
+        reactRoot = ReactDOM.createRoot(reactContainer.value);
+      }
+
+      const element = React.createElement(FehlzeitenPageWrapper, reactProps.value);
+      reactRoot.render(element);
+      reactMounted.value = true;
+    };
+
+    const updateReactComponent = async () => {
+      if (!reactMounted.value || !reactRoot) return;
+
+      const deps = await loadReactDependencies();
+      if (!deps) return;
+
+      const { React, FehlzeitenPageWrapper } = deps;
+
+      const element = React.createElement(FehlzeitenPageWrapper, reactProps.value);
+      reactRoot.render(element);
+    };
+
+    // Event handlers that emit WeWeb events
+    const handleAddEntry = () => {
+      if (isEditing.value) return;
+      emit('trigger-event', { name: 'addEntry', event: {} });
+    };
+
+    const handleEditEntry = (entry) => {
+      if (isEditing.value) return;
+      emit('trigger-event', { name: 'editEntry', event: { entry } });
+    };
+
+    const handleDeleteEntry = (entryId) => {
+      if (isEditing.value) return;
+      emit('trigger-event', { name: 'deleteEntry', event: { entryId } });
+    };
+
+    const handleFilterChange = (filters) => {
+      if (isEditing.value) return;
+      emit('trigger-event', { name: 'filterChange', event: { filters } });
+    };
+
+    const handleSortChange = (sortConfig) => {
+      if (isEditing.value) return;
+      emit('trigger-event', { name: 'sortChange', event: { sortConfig } });
+    };
+
+    const handleError = (error) => {
+      emit('trigger-event', { name: 'error', event: { error: error?.message || String(error) } });
+    };
+
+    // Lifecycle hooks
     onMounted(() => {
-      console.log('Component mounted');
-      // In the future, we can add React initialization here
+      mountReactComponent();
     });
+
+    onBeforeUnmount(() => {
+      if (reactMounted.value && reactRoot) {
+        reactRoot.unmount();
+        reactRoot = null;
+        reactMounted.value = false;
+      }
+    });
+
+    // Watch for changes in reactProps
+    watch(() => reactProps.value, () => {
+      if (reactMounted.value && props.content?.data && props.content?.data.length > 0) {
+        updateReactComponent();
+      }
+    }, { deep: true });
 
     return {
       reactContainer,
-      isLoading,
-      error,
-      handleButtonClick
+      reactMounted
     };
   }
 };
 </script>
 
 <style scoped>
-.react-app-wrapper {
+.ww-fehlzeiten-dashboard {
   width: 100%;
-  min-height: 200px;
-  position: relative;
+  min-height: 400px;
 }
 
-.loading-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  height: 100%;
-  min-height: 200px;
-}
-
-.loading-spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid 
-                    #f3f3f3;
-  border-top: 3px solid 
-                    #3498db;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-right: 10px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.error-container {
-  padding: 16px;
-  background-color: 
-                    #ffebee;
-  color: 
-                    #c62828;
-  border-radius: 4px;
-  border: 1px solid 
-                    #ffcdd2;
-}
-
-.react-container {
+.ww-react-container {
   width: 100%;
-  min-height: 200px;
 }
 
-.fallback-content {
-  padding: 20px;
-  background-color: 
-                    #f0f0f0;
-  border-radius: 4px;
-  text-align: center;
-}
-
-.demo-button {
-  margin-top: 15px;
-  padding: 8px 16px;
-  background-color: 
-                    #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.demo-button:hover {
-  background-color: 
-                    #45a049;
+/* Ensure Tailwind styles work */
+.ww-react-container :deep(*) {
+  box-sizing: border-box;
 }
 </style>
