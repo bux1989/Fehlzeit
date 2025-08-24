@@ -14,7 +14,24 @@ export default {
         de: 'Fehlzeiten-Daten'
       },
       type: 'Array',
-      defaultValue: [],
+      defaultValue: [
+        {
+          id: '1',
+          name: 'Max Mustermann',
+          class: '10A',
+          startDate: '2023-09-01',
+          endDate: '2023-09-03',
+          reason: 'Krankheit'
+        },
+        {
+          id: '2',
+          name: 'Anna Schmidt',
+          class: '11B',
+          startDate: '2023-09-05',
+          endDate: '2023-09-07',
+          reason: 'Arzttermin'
+        }
+      ],
       bindable: true,
       section: 'data',
       /* wwEditor:start */
@@ -33,7 +50,11 @@ export default {
         de: 'Verfügbare Klassen'
       },
       type: 'Array',
-      defaultValue: [],
+      defaultValue: [
+        { id: '10A', name: '10A' },
+        { id: '11B', name: '11B' },
+        { id: '12C', name: '12C' }
+      ],
       bindable: true,
       section: 'data',
       /* wwEditor:start */
@@ -52,7 +73,11 @@ export default {
         de: 'Aktueller Benutzer'
       },
       type: 'Object',
-      defaultValue: null,
+      defaultValue: {
+        id: '1',
+        name: 'Admin User',
+        role: 'admin'
+      },
       bindable: true,
       section: 'data',
       /* wwEditor:start */
