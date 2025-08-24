@@ -1,0 +1,207 @@
+{
+  "name": "Fehlzeiten Dashboard Example",
+  "description": "Example WeWeb page configuration for the Fehlzeiten Dashboard component",
+  "components": [
+    {
+      "type": "weweb-fehlzeiten-dashboard",
+      "props": {
+        "data": "{{$collections.absences.data}}",
+        "availableClasses": "{{$variables.schoolClasses}}",
+        "currentUser": "{{$auth.user}}",
+        "isLoading": "{{$collections.absences.loading}}",
+        "error": "{{$collections.absences.error}}",
+        "readonly": "{{$variables.isViewMode}}",
+        "loadingText": "Lade Fehlzeiten...",
+        "emptyText": "Noch keine Fehlzeiten erfasst"
+      },
+      "events": {
+        "addEntry": {
+          "actions": [
+            {
+              "type": "navigate",
+              "route": "/add-absence"
+            }
+          ]
+        },
+        "editEntry": {
+          "actions": [
+            {
+              "type": "variable",
+              "variable": "selectedEntry",
+              "value": "{{event.entry}}"
+            },
+            {
+              "type": "navigate",
+              "route": "/edit-absence"
+            }
+          ]
+        },
+        "deleteEntry": {
+          "actions": [
+            {
+              "type": "collection",
+              "action": "delete",
+              "collection": "absences",
+              "id": "{{event.entryId}}"
+            }
+          ]
+        },
+        "filterChange": {
+          "actions": [
+            {
+              "type": "variable",
+              "variable": "absenceFilters",
+              "value": "{{event.filters}}"
+            },
+            {
+              "type": "collection",
+              "action": "filter",
+              "collection": "absences",
+              "filters": "{{$variables.absenceFilters}}"
+            }
+          ]
+        },
+        "sortChange": {
+          "actions": [
+            {
+              "type": "variable",
+              "variable": "absenceSort",
+              "value": "{{event.sortConfig}}"
+            },
+            {
+              "type": "collection",
+              "action": "sort",
+              "collection": "absences",
+              "sort": "{{$variables.absenceSort}}"
+            }
+          ]
+        },
+        "error": {
+          "actions": [
+            {
+              "type": "toast",
+              "message": "{{event.error}}",
+              "type": "error"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "variables": [
+    {
+      "name": "schoolClasses",
+      "type": "array",
+      "defaultValue": ["5a", "5b", "6a", "6b", "7a", "7b", "7c", "8a"]
+    },
+    {
+      "name": "isViewMode",
+      "type": "boolean",
+      "defaultValue": false
+    },
+    {
+      "name": "selectedEntry",
+      "type": "object",
+      "defaultValue": null
+    },
+    {
+      "name": "absenceFilters",
+      "type": "object",
+      "defaultValue": {
+        "class": "",
+        "student": "",
+        "dateFrom": "",
+        "status": "alle"
+      }
+    },
+    {
+      "name": "absenceSort",
+      "type": "object",
+      "defaultValue": {
+        "field": "time",
+        "order": "asc"
+      }
+    }
+  ],
+  "collections": [
+    {
+      "name": "absences",
+      "type": "rest",
+      "endpoint": "/api/absences",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "studentName",
+          "type": "string"
+        },
+        {
+          "name": "studentClass",
+          "type": "string"
+        },
+        {
+          "name": "courseClass",
+          "type": "string"
+        },
+        {
+          "name": "date",
+          "type": "string"
+        },
+        {
+          "name": "dateRange",
+          "type": "string"
+        },
+        {
+          "name": "duration",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "reason",
+          "type": "string"
+        },
+        {
+          "name": "hasAttachment",
+          "type": "boolean"
+        },
+        {
+          "name": "hasAccess",
+          "type": "boolean"
+        },
+        {
+          "name": "createdBy",
+          "type": "string"
+        },
+        {
+          "name": "createdAt",
+          "type": "string"
+        },
+        {
+          "name": "sourceType",
+          "type": "string"
+        },
+        {
+          "name": "lastEditedBy",
+          "type": "string"
+        },
+        {
+          "name": "lastEditedAt",
+          "type": "string"
+        },
+        {
+          "name": "endDate",
+          "type": "string"
+        },
+        {
+          "name": "isMultiDay",
+          "type": "boolean"
+        }
+      ]
+    }
+  ]
+}
