@@ -16,7 +16,16 @@ export default {
       type: 'Array',
       defaultValue: [],
       bindable: true,
-      section: 'data'
+      section: 'data',
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'array',
+        tooltip: 'An array of absence data objects'
+      },
+      propertyHelp: {
+        tooltip: 'The absence data to display in the dashboard'
+      }
+      /* wwEditor:end */
     },
     availableClasses: {
       label: {
@@ -26,7 +35,16 @@ export default {
       type: 'Array',
       defaultValue: [],
       bindable: true,
-      section: 'data'
+      section: 'data',
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'array',
+        tooltip: 'An array of available class objects'
+      },
+      propertyHelp: {
+        tooltip: 'The list of available classes to filter by'
+      }
+      /* wwEditor:end */
     },
     currentUser: {
       label: {
@@ -36,7 +54,16 @@ export default {
       type: 'Object',
       defaultValue: null,
       bindable: true,
-      section: 'data'
+      section: 'data',
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'object',
+        tooltip: 'The current user object'
+      },
+      propertyHelp: {
+        tooltip: 'The current user information for permission checks'
+      }
+      /* wwEditor:end */
     },
     isLoading: {
       label: {
@@ -46,7 +73,16 @@ export default {
       type: 'OnOff',
       defaultValue: false,
       bindable: true,
-      section: 'states'
+      section: 'states',
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'boolean',
+        tooltip: 'Whether the dashboard is in loading state'
+      },
+      propertyHelp: {
+        tooltip: 'Controls the loading state of the dashboard'
+      }
+      /* wwEditor:end */
     },
     error: {
       label: {
@@ -56,7 +92,16 @@ export default {
       type: 'Text',
       defaultValue: '',
       bindable: true,
-      section: 'states'
+      section: 'states',
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'string',
+        tooltip: 'Error message to display'
+      },
+      propertyHelp: {
+        tooltip: 'Error message to display when an error occurs'
+      }
+      /* wwEditor:end */
     },
     readonly: {
       label: {
@@ -66,7 +111,16 @@ export default {
       type: 'OnOff',
       defaultValue: false,
       bindable: true,
-      section: 'settings'
+      section: 'settings',
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'boolean',
+        tooltip: 'Whether the dashboard is in readonly mode'
+      },
+      propertyHelp: {
+        tooltip: 'Controls whether users can edit data in the dashboard'
+      }
+      /* wwEditor:end */
     },
     loadingText: {
       label: {
@@ -76,7 +130,16 @@ export default {
       type: 'Text',
       defaultValue: 'Lädt Daten...',
       bindable: true,
-      section: 'texts'
+      section: 'texts',
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'string',
+        tooltip: 'Text to display during loading'
+      },
+      propertyHelp: {
+        tooltip: 'The text shown while data is loading'
+      }
+      /* wwEditor:end */
     },
     emptyText: {
       label: {
@@ -86,17 +149,26 @@ export default {
       type: 'Text',
       defaultValue: 'Keine Fehlzeiten vorhanden',
       bindable: true,
-      section: 'texts'
+      section: 'texts',
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'string',
+        tooltip: 'Text to display when no data is available'
+      },
+      propertyHelp: {
+        tooltip: 'The text shown when there is no absence data to display'
+      }
+      /* wwEditor:end */
     }
   },
-  events: [
+  triggerEvents: [
     {
       name: 'addEntry',
       label: {
         en: 'Add Entry',
         de: 'Eintrag hinzufügen'
       },
-      group: 'Data Actions'
+      event: {}
     },
     {
       name: 'editEntry',
@@ -104,7 +176,7 @@ export default {
         en: 'Edit Entry',
         de: 'Eintrag bearbeiten'
       },
-      group: 'Data Actions'
+      event: { entry: {} }
     },
     {
       name: 'deleteEntry',
@@ -112,7 +184,7 @@ export default {
         en: 'Delete Entry',
         de: 'Eintrag löschen'
       },
-      group: 'Data Actions'
+      event: { entryId: '' }
     },
     {
       name: 'filterChange',
@@ -120,7 +192,7 @@ export default {
         en: 'Filter Changed',
         de: 'Filter geändert'
       },
-      group: 'UI Events'
+      event: { filters: {} }
     },
     {
       name: 'sortChange',
@@ -128,7 +200,7 @@ export default {
         en: 'Sort Changed',
         de: 'Sortierung geändert'
       },
-      group: 'UI Events'
+      event: { sortConfig: {} }
     },
     {
       name: 'error',
@@ -136,7 +208,7 @@ export default {
         en: 'Error Occurred',
         de: 'Fehler aufgetreten'
       },
-      group: 'Error Handling'
+      event: { error: '' }
     }
   ]
 };
