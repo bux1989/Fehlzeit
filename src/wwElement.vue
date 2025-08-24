@@ -26,19 +26,17 @@
 
     <!-- Content / Mount Point -->
     <div v-else class="p-4">
-      <div class="mb-2 text-sm text-gray-500">React-Mount-Point (in v1 noch inaktiv)</div>
+      <div class="mb-2 text-sm text-gray-500">
+        React-Mount-Point · Ready: <b>{{ reactAvailable ? 'yes' : 'no' }}</b> · Mounted: <b>{{ reactMounted ? 'yes' : 'no' }}</b>
+      </div>
       <div ref="reactContainer" class="ww-react-container"></div>
 
-      <!-- Optional basic list to verify data is passed correctly -->
+      <!-- Basic list to verify data is passed -->
       <ul class="mt-4 space-y-1">
         <li v-for="row in content.data" :key="row.id" class="text-sm">
           <span class="font-medium">{{ row?.name || row?.title || 'Eintrag' }}</span>
           <span class="text-gray-500 ml-2">#{{ row?.id ?? '—' }}</span>
-          <button
-            v-if="!readonly && !isEditing"
-            class="ml-3 underline"
-            @click="handleEditEntry(row)"
-          >Bearbeiten</button>
+          <button v-if="!readonly && !isEditing" class="ml-3 underline" @click="handleEditEntry(row)">Bearbeiten</button>
         </li>
       </ul>
 
@@ -52,10 +50,10 @@
 </template>
 
 <script>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 
 export default {
-  name: 'FehlzeitenWeWebSimple',
+  name: 'FehlzeitenWeWebStep2',
   props: {
     content: { type: Object, default: () => ({}) },
     uid: { type: String, required: true },
@@ -66,67 +64,90 @@ export default {
   emits: ['trigger-event'],
   setup(props, { emit }) {
     const reactContainer = ref(null);
+    const reactMounted = ref(false);
+    const reactAvailable = ref(false);
+    let reactRoot = null;
 
-    // Keep the same editing logic, but no React yet.
     const isEditing = computed(() => {
-      /* wwEditor:start */
-      return props.wwEditorState?.isEditing;
-      /* wwEditor:end */
+      /* wwEditor:start */ return props.wwEditorState?.isEditing; /* wwEditor:end */
       // eslint-disable-next-line no-unreachable
       return false;
     });
-
     const readonly = computed(() => props.content?.readonly || false);
 
-    // Event emitters (same names as your original component)
-    const handleAddEntry = () => {
-      if (isEditing.value) return;
-      emit('trigger-event', { name: 'addEntry', event: {} });
-    };
+    // WeWeb events
+    const handleAddEntry = () => { if (isEditing.value) return; emit('trigger-event', { name: 'addEntry', event: {} }); };
+    const handleEditEntry = (entry) => { if (isEditing.value) return; emit('trigger-event', { name: 'editEntry', event: { entry } }); };
+    const handleDeleteEntry = (entryId) => { if (isEditing.value) return; emit('trigger-event', { name: 'deleteEntry', event: { entryId } }); };
+    const emitFilter = () => { if (isEditing.value) return; emit('trigger-event', { name: 'filterChange', event: { filters: { demo: true } } }); };
+    const emitSort = () => { if (isEditing.value) return; emit('trigger-event', { name: 'sortChange', event: { sortConfig: { field: 'id', dir: 'asc' } } }); };
 
-    const handleEditEntry = (entry) => {
-      if (isEditing.value) return;
-      emit('trigger-event', { name: 'editEntry', event: { entry } });
-    };
+    // Optional React mount via UMD globals
+    onMounted(() => {
+      const hasReact = typeof window !== 'undefined'
+        && window.React
+        && window.ReactDOM
+        && typeof window.ReactDOM.createRoot === 'function';
 
-    const handleDeleteEntry = (entryId) => {
-      if (isEditing.value) return;
-      emit('trigger-event', { name: 'deleteEntry', event: { entryId } });
-    };
+      reactAvailable.value = !!hasReact;
+      emit('trigger-event', { name: 'reactReady', event: { available: !!hasReact } });
 
-    const emitFilter = () => {
-      if (isEditing.value) return;
-      emit('trigger-event', { name: 'filterChange', event: { filters: { demo: true } } });
-    };
+      if (!hasReact) return;
 
-    const emitSort = () => {
-      if (isEditing.value) return;
-      emit('trigger-event', { name: 'sortChange', event: { sortConfig: { field: 'id', dir: 'asc' } } });
-    };
+      try {
+        const el = reactContainer.value;
+        if (!el) return;
 
-    // Helpful logs while we iterate
-    watch(
-      () => props.content,
-      (val) => {
-        // Avoid noisy logs in production; useful while debugging builds
-        if (process?.env?.NODE_ENV !== 'production') {
-          console.debug('[FehlzeitenWeWebSimple] content changed', val);
+        reactRoot = window.ReactDOM.createRoot(el);
+        // Tiny debug component that shows props coming from Vue
+        const DebugHello = (props) =>
+          window.React.createElement(
+            'div',
+            { style: { padding: '8px', fontSize: '14px' } },
+            `Hello from React (Step 2). Items: ${props.count}`
+          );
+
+        const tree = window.React.createElement(DebugHello, { count: (props.content?.data || []).length });
+        reactRoot.render(tree);
+        reactMounted.value = true;
+        emit('trigger-event', { name: 'reactMounted', event: { mounted: true } });
+      } catch (e) {
+        emit('trigger-event', { name: 'error', event: { error: `React mount failed: ${e?.message || String(e)}` } });
+      }
+    });
+
+    onBeforeUnmount(() => {
+      try {
+        if (reactRoot) {
+          reactRoot.unmount?.();
+          reactRoot = null;
+          reactMounted.value = false;
+          emit('trigger-event', { name: 'reactMounted', event: { mounted: false } });
         }
-      },
-      { deep: true }
-    );
+      } catch (_) {}
+    });
+
+    // Debug log (kept as before)
+    watch(() => props.content, (val) => {
+      if (process?.env?.NODE_ENV !== 'production') console.debug('[FehlzeitenWeWebStep2] content changed', val);
+      // OPTIONAL: re-render React on data change (uncomment if desired)
+      // if (reactRoot && reactMounted.value && window.React) {
+      //   const tree = window.React.createElement('div', null, `Hello from React (Step 2). Items: ${(props.content?.data || []).length}`);
+      //   reactRoot.render(tree);
+      // }
+    }, { deep: true });
 
     return {
-      // state
       reactContainer,
       isEditing,
       readonly,
-      // methods exposed to template
       handleAddEntry,
       handleEditEntry,
       handleDeleteEntry,
       emitFilter,
       emitSort,
+      reactMounted,
+      reactAvailable,
     };
   },
 };
