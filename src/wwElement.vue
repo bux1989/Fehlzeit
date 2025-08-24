@@ -7,12 +7,12 @@
     </div>
 
     <!-- Error State -->
-    <div v-else-if="content?.error" class="p-6 border border-red-200 rounded-lg bg-red-50">
+    <div v-else-if="error" class="p-6 border border-red-200 rounded-lg bg-red-50">
       <div class="flex items-center">
         <svg class="w-5 h-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
         </svg>
-        <span class="text-red-800">{{ content?.error }}</span>
+        <span class="text-red-800">{{ error }}</span>
       </div>
     </div>
 
@@ -53,7 +53,11 @@ export default {
   setup(props, { emit }) {
     const reactContainer = ref(null);
     const reactMounted = ref(false);
+    const error = ref(props.content?.error || '');
     let reactRoot = null;
+    let React = null;
+    let ReactDOM = null;
+    let FehlzeitenPageWrapper = null;
 
     // Editor state
     const isEditing = computed(() => {
@@ -78,51 +82,73 @@ export default {
       onError: handleError
     }));
 
-    // Dynamic import of React and ReactDOM to avoid build issues
+    // Load React dependencies once
     const loadReactDependencies = async () => {
       try {
-        const React = await import('react');
-        const ReactDOM = await import('react-dom/client');
+        if (!React) {
+          const ReactModule = await import('react');
+          React = ReactModule.default || ReactModule;
+        }
 
-        // Dynamic import of the React component
-        const FehlzeitenModule = await import('./FehlzeitenPageWrapper');
-        const FehlzeitenPageWrapper = FehlzeitenModule.default;
+        if (!ReactDOM) {
+          const ReactDOMModule = await import('react-dom/client');
+          ReactDOM = ReactDOMModule.default || ReactDOMModule;
+        }
 
-        return { React, ReactDOM, FehlzeitenPageWrapper };
-      } catch (error) {
-        console.error('Failed to load React dependencies:', error);
-        handleError(error);
-        return null;
+        if (!FehlzeitenPageWrapper) {
+          const FehlzeitenModule = await import('./FehlzeitenPageWrapper');
+          FehlzeitenPageWrapper = FehlzeitenModule.default || FehlzeitenModule;
+        }
+
+        return true;
+      } catch (err) {
+        console.error('Failed to load React dependencies:', err);
+        error.value = `Failed to load React: ${err.message}`;
+        handleError(err);
+        return false;
       }
     };
 
     const mountReactComponent = async () => {
       if (!reactContainer.value) return;
 
-      const deps = await loadReactDependencies();
-      if (!deps) return;
+      try {
+        const loaded = await loadReactDependencies();
+        if (!loaded) return;
 
-      const { React, ReactDOM, FehlzeitenPageWrapper } = deps;
+        if (!reactRoot && ReactDOM && reactContainer.value) {
+          reactRoot = ReactDOM.createRoot(reactContainer.value);
+        }
 
-      if (!reactRoot) {
-        reactRoot = ReactDOM.createRoot(reactContainer.value);
+        if (reactRoot && React && FehlzeitenPageWrapper) {
+          const element = React.createElement(FehlzeitenPageWrapper, reactProps.value);
+          reactRoot.render(element);
+          reactMounted.value = true;
+          error.value = '';
+        }
+      } catch (err) {
+        console.error('Error mounting React component:', err);
+        error.value = `Error mounting React component: ${err.message}`;
+        handleError(err);
       }
-
-      const element = React.createElement(FehlzeitenPageWrapper, reactProps.value);
-      reactRoot.render(element);
-      reactMounted.value = true;
     };
 
     const updateReactComponent = async () => {
       if (!reactMounted.value || !reactRoot) return;
 
-      const deps = await loadReactDependencies();
-      if (!deps) return;
+      try {
+        const loaded = await loadReactDependencies();
+        if (!loaded) return;
 
-      const { React, FehlzeitenPageWrapper } = deps;
-
-      const element = React.createElement(FehlzeitenPageWrapper, reactProps.value);
-      reactRoot.render(element);
+        if (React && FehlzeitenPageWrapper) {
+          const element = React.createElement(FehlzeitenPageWrapper, reactProps.value);
+          reactRoot.render(element);
+        }
+      } catch (err) {
+        console.error('Error updating React component:', err);
+        error.value = `Error updating React component: ${err.message}`;
+        handleError(err);
+      }
     };
 
     // Event handlers that emit WeWeb events
@@ -151,9 +177,18 @@ export default {
       emit('trigger-event', { name: 'sortChange', event: { sortConfig } });
     };
 
-    const handleError = (error) => {
-      emit('trigger-event', { name: 'error', event: { error: error?.message || String(error) } });
+    const handleError = (err) => {
+      const errorMessage = err?.message || String(err);
+      error.value = errorMessage;
+      emit('trigger-event', { name: 'error', event: { error: errorMessage } });
     };
+
+    // Watch for content error changes
+    watch(() => props.content?.error, (newError) => {
+      if (newError) {
+        error.value = newError;
+      }
+    });
 
     // Lifecycle hooks
     onMounted(() => {
@@ -162,22 +197,34 @@ export default {
 
     onBeforeUnmount(() => {
       if (reactMounted.value && reactRoot) {
-        reactRoot.unmount();
+        try {
+          reactRoot.unmount();
+        } catch (err) {
+          console.error('Error unmounting React component:', err);
+        }
         reactRoot = null;
         reactMounted.value = false;
       }
     });
 
     // Watch for changes in reactProps
-    watch(() => reactProps.value, () => {
-      if (reactMounted.value && props.content?.data && props.content?.data.length > 0) {
+    watch(reactProps, () => {
+      if (reactMounted.value) {
         updateReactComponent();
       }
     }, { deep: true });
 
+    // Watch for changes in the container element
+    watch(reactContainer, () => {
+      if (reactContainer.value && !reactMounted.value) {
+        mountReactComponent();
+      }
+    });
+
     return {
       reactContainer,
-      reactMounted
+      reactMounted,
+      error
     };
   }
 };
@@ -191,6 +238,7 @@ export default {
 
 .ww-react-container {
   width: 100%;
+  min-height: 400px;
 }
 
 /* Ensure Tailwind styles work */
