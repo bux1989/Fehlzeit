@@ -918,3 +918,6 @@ export function FehlzeitenPage({
     </div>
   );
 }
+
+// Export as both named and default for compatibility
+export default FehlzeitenPage;

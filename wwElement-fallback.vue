@@ -24,15 +24,25 @@
       <p>{{ content.emptyText || 'Keine Fehlzeiten vorhanden' }}</p>
     </div>
     
+    <!-- Debug Info -->
+    <div v-else-if="debugMode" class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+      <h3 class="font-bold text-yellow-800">Debug Mode</h3>
+      <p class="text-yellow-700">React Component Status: {{ reactStatus }}</p>
+      <p class="text-yellow-700">Data entries: {{ (content.data || []).length }}</p>
+      <p class="text-yellow-700">Props: {{ JSON.stringify(reactProps, null, 2) }}</p>
+    </div>
+    
     <!-- React App Container -->
     <div v-else ref="reactContainer" class="ww-react-container"></div>
   </div>
 </template>
 
 <script>
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import FehlzeitenPageWrapper from './FehlzeitenPageWrapper.tsx';
+// Use require instead of import for better WeWeb compatibility
+const wewebBridge = require('./weweb-bridge.js');
+const React = wewebBridge.React;
+const createRoot = wewebBridge.createRoot;
+const FehlzeitenPageWrapper = wewebBridge.FehlzeitenPageWrapper;
 
 export default {
   name: 'wwFehlzeitenDashboard',
@@ -42,7 +52,9 @@ export default {
   data() {
     return {
       reactMounted: false,
-      reactRoot: null
+      reactRoot: null,
+      reactStatus: 'Not mounted',
+      debugMode: false
     };
   },
   computed: {
@@ -62,11 +74,21 @@ export default {
     }
   },
   mounted() {
-    this.mountReactComponent();
+    // Enable debug mode if data is empty for testing
+    this.debugMode = !this.content.data || this.content.data.length === 0;
+    
+    if (!this.debugMode) {
+      this.mountReactComponent();
+    }
   },
   beforeUnmount() {
     if (this.reactMounted && this.reactRoot) {
-      this.reactRoot.unmount();
+      try {
+        this.reactRoot.unmount();
+        this.reactStatus = 'Unmounted';
+      } catch (error) {
+        console.error('Error unmounting React component:', error);
+      }
       this.reactRoot = null;
       this.reactMounted = false;
     }
@@ -83,22 +105,44 @@ export default {
   },
   methods: {
     mountReactComponent() {
-      if (!this.$refs.reactContainer || !FehlzeitenPageWrapper) return;
-      
-      if (!this.reactRoot) {
-        this.reactRoot = createRoot(this.$refs.reactContainer);
+      if (!this.$refs.reactContainer || !FehlzeitenPageWrapper) {
+        this.reactStatus = 'Missing container or component';
+        return;
       }
       
-      const element = React.createElement(FehlzeitenPageWrapper, this.reactProps);
-      this.reactRoot.render(element);
-      this.reactMounted = true;
+      try {
+        if (!this.reactRoot) {
+          this.reactRoot = createRoot(this.$refs.reactContainer);
+        }
+        
+        const element = React.createElement(FehlzeitenPageWrapper, this.reactProps);
+        this.reactRoot.render(element);
+        this.reactMounted = true;
+        this.reactStatus = 'Mounted successfully';
+      } catch (error) {
+        this.reactStatus = 'Mount failed: ' + error.message;
+        console.error('Failed to mount React component:', error);
+        this.$emit('trigger-event', {
+          name: 'error',
+          event: { message: 'Failed to mount component: ' + error.message }
+        });
+      }
     },
     
     updateReactComponent() {
-      if (!this.reactMounted || !this.reactRoot || !FehlzeitenPageWrapper) return;
+      if (!this.reactMounted || !this.reactRoot || !FehlzeitenPageWrapper) {
+        this.reactStatus = 'Update failed: component not ready';
+        return;
+      }
       
-      const element = React.createElement(FehlzeitenPageWrapper, this.reactProps);
-      this.reactRoot.render(element);
+      try {
+        const element = React.createElement(FehlzeitenPageWrapper, this.reactProps);
+        this.reactRoot.render(element);
+        this.reactStatus = 'Updated successfully';
+      } catch (error) {
+        this.reactStatus = 'Update failed: ' + error.message;
+        console.error('Failed to update React component:', error);
+      }
     },
     
     // Event handlers that emit WeWeb events
@@ -143,4 +187,19 @@ export default {
 .ww-react-container :global(*) {
   box-sizing: border-box;
 }
+
+/* Basic Tailwind-like utility classes for fallback */
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.p-4 { padding: 1rem; }
+.p-6 { padding: 1.5rem; }
+.p-8 { padding: 2rem; }
+.bg-yellow-50 { background-color: #fefce8; }
+.border { border-width: 1px; }
+.border-yellow-200 { border-color: #fde047; }
+.rounded-lg { border-radius: 0.5rem; }
+.font-bold { font-weight: 700; }
+.text-yellow-800 { color: #92400e; }
+.text-yellow-700 { color: #b45309; }
 </style>

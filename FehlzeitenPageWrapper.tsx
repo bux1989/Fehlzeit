@@ -1,6 +1,28 @@
 import React from 'react';
+
+// Import the main component without the extension to let the bundler handle it
 import { FehlzeitenPage } from './src/components/FehlzeitenPage';
-import './src/index.css';
+
+// Import the CSS - this might be causing issues in WeWeb
+// Let's make it conditional
+try {
+  import('./src/index.css');
+} catch (error) {
+  console.warn('Could not load CSS, styles might not work correctly:', error);
+}
+
+interface FehlzeitenPageWrapperProps {
+  data?: any[];
+  availableClasses?: string[];
+  currentUser?: any;
+  readonly?: boolean;
+  onAddEntry?: () => void;
+  onEditEntry?: (entry: any) => void;
+  onDeleteEntry?: (entryId: string) => void;
+  onFilterChange?: (filters: any) => void;
+  onSortChange?: (sortConfig: any) => void;
+  onError?: (error: any) => void;
+}
 
 /**
  * React Bridge Component for WeWeb
@@ -19,7 +41,7 @@ function FehlzeitenPageWrapper({
   onFilterChange,
   onSortChange,
   onError
-}) {
+}: FehlzeitenPageWrapperProps) {
   // Handle Add Entry
   const handleAddEntry = () => {
     if (onAddEntry) {
@@ -28,35 +50,35 @@ function FehlzeitenPageWrapper({
   };
 
   // Handle Edit Entry
-  const handleEditEntry = (entry) => {
+  const handleEditEntry = (entry: any) => {
     if (onEditEntry) {
       onEditEntry(entry);
     }
   };
 
   // Handle Delete Entry
-  const handleDeleteEntry = (entryId) => {
+  const handleDeleteEntry = (entryId: string) => {
     if (onDeleteEntry) {
       onDeleteEntry(entryId);
     }
   };
 
   // Handle Filter Change
-  const handleFilterChange = (filters) => {
+  const handleFilterChange = (filters: any) => {
     if (onFilterChange) {
       onFilterChange(filters);
     }
   };
 
   // Handle Sort Change
-  const handleSortChange = (sortConfig) => {
+  const handleSortChange = (sortConfig: any) => {
     if (onSortChange) {
       onSortChange(sortConfig);
     }
   };
 
   // Handle Error
-  const handleError = (error) => {
+  const handleError = (error: any) => {
     if (onError) {
       onError(error);
     }
@@ -81,10 +103,17 @@ function FehlzeitenPageWrapper({
     onError: handleError
   };
 
-  return React.createElement(FehlzeitenPage, fehlzeitenPageProps);
+  try {
+    return React.createElement(FehlzeitenPage, fehlzeitenPageProps);
+  } catch (error) {
+    console.error('Error rendering FehlzeitenPage:', error);
+    return React.createElement('div', { 
+      style: { padding: '2rem', border: '1px solid red', background: '#ffeeee' } 
+    }, `Error loading component: ${error.message}`);
+  }
 }
 
-// Ensure default export
+// Ensure default export with display name
 FehlzeitenPageWrapper.displayName = 'FehlzeitenPageWrapper';
 
 export default FehlzeitenPageWrapper;
