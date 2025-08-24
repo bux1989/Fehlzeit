@@ -1,0 +1,40 @@
+{
+  "name": "ww-fehlzeiten-dashboard",
+  "version": "1.0.0",
+  "description": "WeWeb component for student absence tracking dashboard",
+  "main": "ww-config.js",
+  "scripts": {
+    "build": "echo 'WeWeb component ready for deployment'",
+    "dev": "echo 'WeWeb component in development mode'"
+  },
+  "keywords": [
+    "weweb",
+    "component",
+    "dashboard",
+    "education",
+    "attendance",
+    "student",
+    "absence",
+    "fehlzeiten"
+  ],
+  "author": "FlexWise",
+  "license": "MIT",
+  "peerDependencies": {
+    "vue": "^3.0.0"
+  },
+  "devDependencies": {},
+  "dependencies": {},
+  "files": [
+    "src/",
+    "ww-config.js",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-repo/ww-fehlzeiten-dashboard"
+  },
+  "bugs": {
+    "url": "https://github.com/your-repo/ww-fehlzeiten-dashboard/issues"
+  },
+  "homepage": "https://github.com/your-repo/ww-fehlzeiten-dashboard#readme"
+}
