@@ -1,31 +1,18 @@
 <template>
-  <div class="ww-fehlzeiten-dashboard">
+  <div class="react-app-wrapper">
     <!-- Loading State -->
-    <div v-if="content?.isLoading" class="flex items-center justify-center p-8">
-      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      <span class="ml-3 text-gray-600">{{ content?.loadingText || 'Lädt Daten...' }}</span>
+    <div v-if="isLoading" class="loading-container">
+      <div class="loading-spinner"></div>
+      <span>Loading...</span>
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="p-6 border border-red-200 rounded-lg bg-red-50">
-      <div class="flex items-center">
-        <svg class="w-5 h-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
-        </svg>
-        <span class="text-red-800">{{ error }}</span>
-      </div>
-    </div>
-
-    <!-- Empty State -->
-    <div v-else-if="!content?.data || content?.data.length === 0" class="text-center p-8 text-gray-500">
-      <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-      </svg>
-      <p>{{ content?.emptyText || 'Keine Fehlzeiten vorhanden' }}</p>
+    <div v-else-if="error" class="error-container">
+      <span>{{ error }}</span>
     </div>
 
     <!-- React App Container -->
-    <div v-else ref="reactContainer" class="ww-react-container"></div>
+    <div v-else ref="reactContainer" class="react-container"></div>
   </div>
 </template>
 
@@ -52,12 +39,11 @@ export default {
   emits: ['trigger-event'],
   setup(props, { emit }) {
     const reactContainer = ref(null);
-    const reactMounted = ref(false);
-    const error = ref(props.content?.error || '');
+    const isLoading = ref(false);
+    const error = ref('');
     let reactRoot = null;
     let React = null;
     let ReactDOM = null;
-    let FehlzeitenPageWrapper = null;
 
     // Editor state
     const isEditing = computed(() => {
@@ -68,127 +54,101 @@ export default {
       return false;
     });
 
-    const reactProps = computed(() => ({
-      data: props.content?.data || [],
-      availableClasses: props.content?.availableClasses || [],
-      currentUser: props.content?.currentUser || null,
-      readonly: props.content?.readonly || false,
-      isEditing: isEditing.value,
-      onAddEntry: handleAddEntry,
-      onEditEntry: handleEditEntry,
-      onDeleteEntry: handleDeleteEntry,
-      onFilterChange: handleFilterChange,
-      onSortChange: handleSortChange,
-      onError: handleError
-    }));
+    // Simple React component to render
+    const createSimpleReactComponent = () => {
+      if (!React) return null;
 
-    // Load React dependencies once
+      return React.createElement('div', {
+        style: {
+          padding: '20px',
+          backgroundColor: '
+                    #f0f0f0',
+          borderRadius: '4px',
+          textAlign: 'center'
+        }
+      }, [
+        React.createElement('h2', {
+          style: { color: '
+                    #333' }
+        }, 'Hello from React!'),
+        React.createElement('p', {
+          style: { marginTop: '10px' }
+        }, 'This is a simple React component rendered inside WeWeb.'),
+        React.createElement('button', {
+          style: {
+            marginTop: '15px',
+            padding: '8px 16px',
+            backgroundColor: '
+                    #4CAF50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          },
+          onClick: () => {
+            if (!isEditing.value) {
+              emit('trigger-event', { 
+                name: 'buttonClick', 
+                event: { message: 'Button clicked!' } 
+              });
+            }
+          }
+        }, 'Click Me')
+      ]);
+    };
+
+    // Load React and ReactDOM
     const loadReactDependencies = async () => {
+      isLoading.value = true;
+      error.value = '';
+
       try {
-        if (!React) {
-          const ReactModule = await import('react');
-          React = ReactModule.default || ReactModule;
-        }
+        // Import React and ReactDOM
+        const ReactModule = await import('react');
+        const ReactDOMModule = await import('react-dom/client');
 
-        if (!ReactDOM) {
-          const ReactDOMModule = await import('react-dom/client');
-          ReactDOM = ReactDOMModule.default || ReactDOMModule;
-        }
-
-        if (!FehlzeitenPageWrapper) {
-          const FehlzeitenModule = await import('./FehlzeitenPageWrapper');
-          FehlzeitenPageWrapper = FehlzeitenModule.default || FehlzeitenModule;
-        }
+        React = ReactModule.default;
+        ReactDOM = ReactDOMModule.default;
 
         return true;
       } catch (err) {
         console.error('Failed to load React dependencies:', err);
-        error.value = `Failed to load React: ${err.message}`;
-        handleError(err);
+        error.value = 'Failed to load React dependencies';
         return false;
+      } finally {
+        isLoading.value = false;
       }
     };
 
+    // Mount React component
     const mountReactComponent = async () => {
       if (!reactContainer.value) return;
 
-      try {
-        const loaded = await loadReactDependencies();
-        if (!loaded) return;
-
-        if (!reactRoot && ReactDOM && reactContainer.value) {
-          reactRoot = ReactDOM.createRoot(reactContainer.value);
-        }
-
-        if (reactRoot && React && FehlzeitenPageWrapper) {
-          const element = React.createElement(FehlzeitenPageWrapper, reactProps.value);
-          reactRoot.render(element);
-          reactMounted.value = true;
-          error.value = '';
-        }
-      } catch (err) {
-        console.error('Error mounting React component:', err);
-        error.value = `Error mounting React component: ${err.message}`;
-        handleError(err);
-      }
-    };
-
-    const updateReactComponent = async () => {
-      if (!reactMounted.value || !reactRoot) return;
+      const loaded = await loadReactDependencies();
+      if (!loaded) return;
 
       try {
-        const loaded = await loadReactDependencies();
-        if (!loaded) return;
-
-        if (React && FehlzeitenPageWrapper) {
-          const element = React.createElement(FehlzeitenPageWrapper, reactProps.value);
-          reactRoot.render(element);
-        }
+        // Create root and render component
+        reactRoot = ReactDOM.createRoot(reactContainer.value);
+        const element = createSimpleReactComponent();
+        reactRoot.render(element);
       } catch (err) {
-        console.error('Error updating React component:', err);
-        error.value = `Error updating React component: ${err.message}`;
-        handleError(err);
+        console.error('Failed to mount React component:', err);
+        error.value = 'Failed to mount React component';
       }
     };
 
-    // Event handlers that emit WeWeb events
-    const handleAddEntry = () => {
-      if (isEditing.value) return;
-      emit('trigger-event', { name: 'addEntry', event: {} });
-    };
-
-    const handleEditEntry = (entry) => {
-      if (isEditing.value) return;
-      emit('trigger-event', { name: 'editEntry', event: { entry } });
-    };
-
-    const handleDeleteEntry = (entryId) => {
-      if (isEditing.value) return;
-      emit('trigger-event', { name: 'deleteEntry', event: { entryId } });
-    };
-
-    const handleFilterChange = (filters) => {
-      if (isEditing.value) return;
-      emit('trigger-event', { name: 'filterChange', event: { filters } });
-    };
-
-    const handleSortChange = (sortConfig) => {
-      if (isEditing.value) return;
-      emit('trigger-event', { name: 'sortChange', event: { sortConfig } });
-    };
-
-    const handleError = (err) => {
-      const errorMessage = err?.message || String(err);
-      error.value = errorMessage;
-      emit('trigger-event', { name: 'error', event: { error: errorMessage } });
-    };
-
-    // Watch for content error changes
-    watch(() => props.content?.error, (newError) => {
-      if (newError) {
-        error.value = newError;
+    // Unmount React component
+    const unmountReactComponent = () => {
+      if (reactRoot) {
+        try {
+          reactRoot.unmount();
+        } catch (err) {
+          console.error('Failed to unmount React component:', err);
+        }
+        reactRoot = null;
       }
-    });
+    };
 
     // Lifecycle hooks
     onMounted(() => {
@@ -196,53 +156,64 @@ export default {
     });
 
     onBeforeUnmount(() => {
-      if (reactMounted.value && reactRoot) {
-        try {
-          reactRoot.unmount();
-        } catch (err) {
-          console.error('Error unmounting React component:', err);
-        }
-        reactRoot = null;
-        reactMounted.value = false;
-      }
-    });
-
-    // Watch for changes in reactProps
-    watch(reactProps, () => {
-      if (reactMounted.value) {
-        updateReactComponent();
-      }
-    }, { deep: true });
-
-    // Watch for changes in the container element
-    watch(reactContainer, () => {
-      if (reactContainer.value && !reactMounted.value) {
-        mountReactComponent();
-      }
+      unmountReactComponent();
     });
 
     return {
       reactContainer,
-      reactMounted,
-      error
+      isLoading: computed(() => isLoading.value || props.content?.isLoading),
+      error: computed(() => error.value || props.content?.error)
     };
   }
 };
 </script>
 
 <style scoped>
-.ww-fehlzeiten-dashboard {
+.react-app-wrapper {
   width: 100%;
-  min-height: 400px;
+  min-height: 200px;
+  position: relative;
 }
 
-.ww-react-container {
-  width: 100%;
-  min-height: 400px;
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  height: 100%;
+  min-height: 200px;
 }
 
-/* Ensure Tailwind styles work */
-.ww-react-container :deep(*) {
-  box-sizing: border-box;
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid 
+                    #f3f3f3;
+  border-top: 3px solid 
+                    #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-container {
+  padding: 16px;
+  background-color: 
+                    #ffebee;
+  color: 
+                    #c62828;
+  border-radius: 4px;
+  border: 1px solid 
+                    #ffcdd2;
+}
+
+.react-container {
+  width: 100%;
+  min-height: 200px;
 }
 </style>
