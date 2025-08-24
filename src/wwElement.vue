@@ -1,146 +1,185 @@
 <template>
-  <div class="ww-fehlzeiten-dashboard">
+  <div class="react-app-wrapper">
     <!-- Loading State -->
-    <div v-if="content.isLoading" class="flex items-center justify-center p-8">
-      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-      <span class="ml-3 text-gray-600">{{ content.loadingText || 'Lädt Daten...' }}</span>
+    <div v-if="isLoading" class="loading-container">
+      <div class="loading-spinner"></div>
+      <span>{{ safeContent.loadingText }}</span>
     </div>
-    
+
     <!-- Error State -->
-    <div v-else-if="content.error" class="p-6 border border-red-200 rounded-lg bg-red-50">
-      <div class="flex items-center">
-        <svg class="w-5 h-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
-        </svg>
-        <span class="text-red-800">{{ content.error }}</span>
+    <div v-else-if="error" class="error-container">
+      <span>{{ error }}</span>
+    </div>
+
+    <!-- React App Container -->
+    <div v-else ref="reactContainer" class="react-container">
+      <div class="fallback-content">
+        <h2>React Component Placeholder</h2>
+        <p>This is a placeholder for the React component.</p>
+        <button @click="handleButtonClick" class="demo-button">Click Me</button>
+        <p class="mt-2 text-xs">
+          React ready: <strong>{{ reactAvailable ? 'yes' : 'no' }}</strong> ·
+          Mounted: <strong>{{ reactMounted ? 'yes' : 'no' }}</strong>
+        </p>
+
+        <!-- Extra: show data length to confirm safeContent is an array -->
+        <p class="mt-2 text-xs">Data items: {{ safeContent.data.length }}</p>
       </div>
     </div>
-    
-    <!-- Empty State -->
-    <div v-else-if="!content.data || content.data.length === 0" class="text-center p-8 text-gray-500">
-      <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-      </svg>
-      <p>{{ content.emptyText || 'Keine Fehlzeiten vorhanden' }}</p>
-    </div>
-    
-    <!-- React App Container -->
-    <div v-else ref="reactContainer" class="ww-react-container"></div>
   </div>
 </template>
 
 <script>
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import FehlzeitenPageWrapper from './FehlzeitenPageWrapper.tsx';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 
 export default {
-  name: 'wwFehlzeitenDashboard',
+  name: 'ReactMountStep1',
   props: {
-    content: { type: Object, default: () => ({}) }
+    // WeWeb may still pass null, so we normalize in computed below
+    content: { type: Object, default: () => ({}) },
+    uid: { type: String, required: true },
+    /* wwEditor:start */
+    wwEditorState: { type: Object, required: true },
+    /* wwEditor:end */
   },
-  data() {
-    return {
-      reactMounted: false,
-      reactRoot: null
-    };
-  },
-  computed: {
-    reactProps() {
+  emits: ['trigger-event'],
+  setup(props, { emit }) {
+    const reactContainer = ref(null);
+    const loadingState = ref(false);
+    const errorState = ref('');
+    const reactMounted = ref(false);
+    const reactAvailable = ref(false);
+    let reactRoot = null;
+
+    // Normalize content so no consumer ever reads null
+    const safeContent = computed(() => {
+      const c = (props.content && typeof props.content === 'object') ? props.content : {};
       return {
-        data: this.content.data || [],
-        availableClasses: this.content.availableClasses || [],
-        currentUser: this.content.currentUser || null,
-        readonly: this.content.readonly || false,
-        onAddEntry: this.handleAddEntry,
-        onEditEntry: this.handleEditEntry,
-        onDeleteEntry: this.handleDeleteEntry,
-        onFilterChange: this.handleFilterChange,
-        onSortChange: this.handleSortChange,
-        onError: this.handleError
+        isLoading: !!c.isLoading,
+        error: (c.error ?? ''),
+        loadingText: (typeof c.loadingText === 'string' ? c.loadingText : 'Lädt Daten...'),
+        emptyText: (typeof c.emptyText === 'string' ? c.emptyText : 'Keine Fehlzeiten vorhanden'),
+        // always an array
+        data: Array.isArray(c.data) ? c.data : [],
+        availableClasses: Array.isArray(c.availableClasses) ? c.availableClasses : [],
+        currentUser: c.currentUser ?? null,
+        readonly: !!c.readonly,
       };
-    }
-  },
-  mounted() {
-    this.mountReactComponent();
-  },
-  beforeUnmount() {
-    if (this.reactMounted && this.reactRoot) {
-      this.reactRoot.unmount();
-      this.reactRoot = null;
-      this.reactMounted = false;
-    }
-  },
-  watch: {
-    reactProps: {
-      deep: true,
-      handler() {
-        if (this.reactMounted && this.content.data && this.content.data.length > 0) {
-          this.updateReactComponent();
+    });
+
+    const isEditing = computed(() => {
+      /* wwEditor:start */
+      return !!props.wwEditorState?.isEditing;
+      /* wwEditor:end */
+      // eslint-disable-next-line no-unreachable
+      return false;
+    });
+
+    const isLoading = computed(() => loadingState.value || safeContent.value.isLoading);
+    const error = computed(() => errorState.value || safeContent.value.error);
+
+    const emitSafe = (name, eventObj) => {
+      // ensure an object for WeWeb's internal Object.keys usage
+      const payload = (eventObj && typeof eventObj === 'object') ? eventObj : {};
+      try {
+        emit('trigger-event', { name, event: payload });
+      } catch (e) {
+        // never throw to WeWeb
+        console.error('[ReactMountStep1] emit error', e);
+      }
+    };
+
+    const handleButtonClick = () => {
+      if (isEditing.value) return;
+      console.log('[ReactMountStep1] Button clicked!');
+      emitSafe('buttonClick', { message: 'Button clicked!' });
+    };
+
+    onMounted(() => {
+      console.log('[ReactMountStep1] onMounted — checking for React globals…');
+
+      const hasReact = typeof window !== 'undefined'
+        && window.React
+        && window.ReactDOM
+        && typeof window.ReactDOM.createRoot === 'function';
+
+      reactAvailable.value = !!hasReact;
+      console.log('[ReactMountStep1] React available?', hasReact);
+
+      emitSafe('reactReady', { available: !!hasReact });
+
+      if (!hasReact) {
+        console.warn('[ReactMountStep1] No React detected on window — keeping Vue placeholder.');
+        return;
+      }
+
+      try {
+        const el = reactContainer.value;
+        if (!el) {
+          console.error('[ReactMountStep1] No reactContainer element found!');
+          return;
         }
+
+        console.log('[ReactMountStep1] Creating React root…');
+        reactRoot = window.ReactDOM.createRoot(el);
+
+        const Hello = () =>
+          window.React.createElement('div', { className: 'p-2' }, 'Hello from React (Step 1)');
+        const tree = window.React.createElement(Hello);
+
+        console.log('[ReactMountStep1] Rendering React element…');
+        reactRoot.render(tree);
+        reactMounted.value = true;
+
+        console.log('[ReactMountStep1] React mounted successfully.');
+        emitSafe('reactMounted', { mounted: true });
+      } catch (e) {
+        errorState.value = `React mount failed: ${e?.message || String(e)}`;
+        console.error('[ReactMountStep1] React mount failed:', e);
+        emitSafe('error', { error: errorState.value });
       }
-    }
-  },
-  methods: {
-    mountReactComponent() {
-      if (!this.$refs.reactContainer || !FehlzeitenPageWrapper) return;
-      
-      if (!this.reactRoot) {
-        this.reactRoot = createRoot(this.$refs.reactContainer);
+    });
+
+    onBeforeUnmount(() => {
+      console.log('[ReactMountStep1] onBeforeUnmount');
+      try {
+        if (reactRoot) {
+          console.log('[ReactMountStep1] Unmounting React root…');
+          reactRoot.unmount?.();
+          reactRoot = null;
+          reactMounted.value = false;
+          emitSafe('reactMounted', { mounted: false });
+        }
+      } catch (e) {
+        console.error('[ReactMountStep1] Error during unmount:', e);
       }
-      
-      const element = React.createElement(FehlzeitenPageWrapper, this.reactProps);
-      this.reactRoot.render(element);
-      this.reactMounted = true;
-    },
-    
-    updateReactComponent() {
-      if (!this.reactMounted || !this.reactRoot || !FehlzeitenPageWrapper) return;
-      
-      const element = React.createElement(FehlzeitenPageWrapper, this.reactProps);
-      this.reactRoot.render(element);
-    },
-    
-    // Event handlers that emit WeWeb events
-    handleAddEntry() {
-      this.$emit('trigger-event', { name: 'addEntry', event: {} });
-    },
-    
-    handleEditEntry(entry) {
-      this.$emit('trigger-event', { name: 'editEntry', event: { entry } });
-    },
-    
-    handleDeleteEntry(entryId) {
-      this.$emit('trigger-event', { name: 'deleteEntry', event: { entryId } });
-    },
-    
-    handleFilterChange(filters) {
-      this.$emit('trigger-event', { name: 'filterChange', event: { filters } });
-    },
-    
-    handleSortChange(sortConfig) {
-      this.$emit('trigger-event', { name: 'sortChange', event: { sortConfig } });
-    },
-    
-    handleError(error) {
-      this.$emit('trigger-event', { name: 'error', event: { error } });
-    }
+    });
+
+    return {
+      reactContainer,
+      safeContent,
+      isLoading,
+      error,
+      handleButtonClick,
+      reactMounted,
+      reactAvailable,
+    };
   }
 };
 </script>
 
 <style scoped>
-.ww-fehlzeiten-dashboard {
-  width: 100%;
-  min-height: 400px;
-}
+.react-app-wrapper { width: 100%; min-height: 200px; position: relative; }
 
-.ww-react-container {
-  width: 100%;
-}
+.loading-container { display: flex; align-items: center; justify-content: center; padding: 20px; height: 100%; min-height: 200px; }
+.loading-spinner { width: 24px; height: 24px; border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 10px; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-/* Ensure Tailwind styles work */
-.ww-react-container :global(*) {
-  box-sizing: border-box;
-}
+.error-container { padding: 16px; background-color: #ffebee; color: #c62828; border-radius: 4px; border: 1px solid #ffcdd2; }
+
+.react-container { width: 100%; min-height: 200px; }
+.fallback-content { padding: 20px; background-color: #f0f0f0; border-radius: 4px; text-align: center; }
+
+.demo-button { margin-top: 15px; padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+.demo-button:hover { background-color: #45a049; }
 </style>
