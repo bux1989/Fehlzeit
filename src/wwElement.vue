@@ -12,12 +12,18 @@
     </div>
 
     <!-- React App Container -->
-    <div v-else ref="reactContainer" class="react-container"></div>
+    <div v-else ref="reactContainer" class="react-container">
+      <div class="fallback-content">
+        <h2>React Component Placeholder</h2>
+        <p>This is a placeholder for the React component.</p>
+        <button @click="handleButtonClick" class="demo-button">Click Me</button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 
 export default {
   props: {
@@ -39,11 +45,8 @@ export default {
   emits: ['trigger-event'],
   setup(props, { emit }) {
     const reactContainer = ref(null);
-    const isLoading = ref(false);
-    const error = ref('');
-    let reactRoot = null;
-    let React = null;
-    let ReactDOM = null;
+    const loadingState = ref(false);
+    const errorState = ref('');
 
     // Editor state
     const isEditing = computed(() => {
@@ -54,115 +57,31 @@ export default {
       return false;
     });
 
-    // Simple React component to render
-    const createSimpleReactComponent = () => {
-      if (!React) return null;
+    const isLoading = computed(() => loadingState.value || props.content?.isLoading);
+    const error = computed(() => errorState.value || props.content?.error);
 
-      return React.createElement('div', {
-        style: {
-          padding: '20px',
-          backgroundColor: '
-                    #f0f0f0',
-          borderRadius: '4px',
-          textAlign: 'center'
-        }
-      }, [
-        React.createElement('h2', {
-          style: { color: '
-                    #333' }
-        }, 'Hello from React!'),
-        React.createElement('p', {
-          style: { marginTop: '10px' }
-        }, 'This is a simple React component rendered inside WeWeb.'),
-        React.createElement('button', {
-          style: {
-            marginTop: '15px',
-            padding: '8px 16px',
-            backgroundColor: '
-                    #4CAF50',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          },
-          onClick: () => {
-            if (!isEditing.value) {
-              emit('trigger-event', { 
-                name: 'buttonClick', 
-                event: { message: 'Button clicked!' } 
-              });
-            }
-          }
-        }, 'Click Me')
-      ]);
+    // Handle button click
+    const handleButtonClick = () => {
+      if (isEditing.value) return;
+
+      emit('trigger-event', { 
+        name: 'buttonClick', 
+        event: { message: 'Button clicked!' } 
+      });
     };
 
-    // Load React and ReactDOM
-    const loadReactDependencies = async () => {
-      isLoading.value = true;
-      error.value = '';
-
-      try {
-        // Import React and ReactDOM
-        const ReactModule = await import('react');
-        const ReactDOMModule = await import('react-dom/client');
-
-        React = ReactModule.default;
-        ReactDOM = ReactDOMModule.default;
-
-        return true;
-      } catch (err) {
-        console.error('Failed to load React dependencies:', err);
-        error.value = 'Failed to load React dependencies';
-        return false;
-      } finally {
-        isLoading.value = false;
-      }
-    };
-
-    // Mount React component
-    const mountReactComponent = async () => {
-      if (!reactContainer.value) return;
-
-      const loaded = await loadReactDependencies();
-      if (!loaded) return;
-
-      try {
-        // Create root and render component
-        reactRoot = ReactDOM.createRoot(reactContainer.value);
-        const element = createSimpleReactComponent();
-        reactRoot.render(element);
-      } catch (err) {
-        console.error('Failed to mount React component:', err);
-        error.value = 'Failed to mount React component';
-      }
-    };
-
-    // Unmount React component
-    const unmountReactComponent = () => {
-      if (reactRoot) {
-        try {
-          reactRoot.unmount();
-        } catch (err) {
-          console.error('Failed to unmount React component:', err);
-        }
-        reactRoot = null;
-      }
-    };
-
-    // Lifecycle hooks
+    // In a real implementation, we would load React here
+    // For now, we'll just use a placeholder
     onMounted(() => {
-      mountReactComponent();
-    });
-
-    onBeforeUnmount(() => {
-      unmountReactComponent();
+      console.log('Component mounted');
+      // In the future, we can add React initialization here
     });
 
     return {
       reactContainer,
-      isLoading: computed(() => isLoading.value || props.content?.isLoading),
-      error: computed(() => error.value || props.content?.error)
+      isLoading,
+      error,
+      handleButtonClick
     };
   }
 };
@@ -215,5 +134,29 @@ export default {
 .react-container {
   width: 100%;
   min-height: 200px;
+}
+
+.fallback-content {
+  padding: 20px;
+  background-color: 
+                    #f0f0f0;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.demo-button {
+  margin-top: 15px;
+  padding: 8px 16px;
+  background-color: 
+                    #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.demo-button:hover {
+  background-color: 
+                    #45a049;
 }
 </style>
