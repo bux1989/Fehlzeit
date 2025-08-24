@@ -33,6 +33,7 @@ interface FehlzeitDetailModalProps {
   onClose: () => void;
   onEdit: (entry: FehlzeitEntry) => void;
   onDelete: (id: string) => void;
+  readonly?: boolean;
 }
 
 function StatusDisplay({ status, endDate, isMultiDay }: { 
@@ -135,7 +136,7 @@ function AttachmentDisplay({ hasAttachment, hasAccess }: { hasAttachment: boolea
   );
 }
 
-export function FehlzeitDetailModal({ entry, isOpen, onClose, onEdit, onDelete }: FehlzeitDetailModalProps) {
+export function FehlzeitDetailModal({ entry, isOpen, onClose, onEdit, onDelete, readonly = false }: FehlzeitDetailModalProps) {
   if (!entry) return null;
 
   const handleDelete = () => {
@@ -304,25 +305,27 @@ export function FehlzeitDetailModal({ entry, isOpen, onClose, onEdit, onDelete }
             <Button variant="outline" onClick={onClose}>
               Schließen
             </Button>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  onEdit(entry);
-                  onClose();
-                }}
-              >
-                <Edit2 className="h-4 w-4 mr-2" />
-                Bearbeiten
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDelete}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Löschen
-              </Button>
-            </div>
+            {!readonly && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    onEdit(entry);
+                    onClose();
+                  }}
+                >
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  Bearbeiten
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Löschen
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>

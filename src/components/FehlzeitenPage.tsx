@@ -459,8 +459,32 @@ const mockAvailableClasses = [
   '8a'
 ];
 
-export function FehlzeitenPage() {
-  const [data, setData] = useState<FehlzeitEntry[]>(mockData);
+interface FehlzeitenPageProps {
+  initialData?: FehlzeitEntry[];
+  availableClasses?: string[];
+  currentUser?: any;
+  readonly?: boolean;
+  onAddEntry?: () => void;
+  onEditEntry?: (entry: FehlzeitEntry) => void;
+  onDeleteEntry?: (entryId: string) => void;
+  onFilterChange?: (filters: any) => void;
+  onSortChange?: (sortConfig: any) => void;
+  onError?: (error: any) => void;
+}
+
+export function FehlzeitenPage({
+  initialData = mockData,
+  availableClasses = mockAvailableClasses,
+  currentUser,
+  readonly = false,
+  onAddEntry,
+  onEditEntry,
+  onDeleteEntry,
+  onFilterChange,
+  onSortChange,
+  onError
+}: FehlzeitenPageProps = {}) {
+  const [data, setData] = useState<FehlzeitEntry[]>(initialData);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<FehlzeitEntry | null>(null);
   // Get current date in YYYY-MM-DD format (defaulting to Monday of current mock week)
@@ -480,19 +504,45 @@ export function FehlzeitenPage() {
   const [showClassDropdown, setShowClassDropdown] = useState(false);
   const [classSearchTerm, setClassSearchTerm] = useState('');
 
+  // Update data when initialData prop changes
+  React.useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
+
   const handleAddEntry = () => {
-    setEditingEntry(null);
-    setIsModalOpen(true);
+    if (readonly) return;
+    
+    if (onAddEntry) {
+      onAddEntry();
+    } else {
+      // Fallback to internal modal
+      setEditingEntry(null);
+      setIsModalOpen(true);
+    }
   };
 
   const handleEditEntry = (entry: FehlzeitEntry) => {
-    setEditingEntry(entry);
-    setIsModalOpen(true);
+    if (readonly) return;
+    
+    if (onEditEntry) {
+      onEditEntry(entry);
+    } else {
+      // Fallback to internal modal
+      setEditingEntry(entry);
+      setIsModalOpen(true);
+    }
   };
 
   const handleDeleteEntry = (id: string) => {
-    if (confirm('Fehlzeit wirklich löschen?')) {
-      setData(data.filter(item => item.id !== id));
+    if (readonly) return;
+    
+    if (onDeleteEntry) {
+      onDeleteEntry(id);
+    } else {
+      // Fallback to internal handling
+      if (confirm('Fehlzeit wirklich löschen?')) {
+        setData(data.filter(item => item.id !== id));
+      }
     }
   };
 
@@ -565,11 +615,13 @@ export function FehlzeitenPage() {
   });
 
   const handleSort = (field: string) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('asc');
+    const newSortOrder = sortBy === field ? (sortOrder === 'asc' ? 'desc' : 'asc') : 'asc';
+    setSortBy(field);
+    setSortOrder(newSortOrder);
+    
+    // Notify parent component
+    if (onSortChange) {
+      onSortChange({ field, order: newSortOrder });
     }
   };
 
@@ -625,7 +677,7 @@ export function FehlzeitenPage() {
   };
 
   // Filter classes based on search term
-  const allClassOptions = ['Alle', ...mockAvailableClasses];
+  const allClassOptions = ['Alle', ...availableClasses];
   const filteredClassOptions = classSearchTerm 
     ? allClassOptions.filter(className =>
         className.toLowerCase().includes(classSearchTerm.toLowerCase())
@@ -633,13 +685,18 @@ export function FehlzeitenPage() {
     : allClassOptions;
 
   const handleClassSelect = (className: string) => {
-    if (className === 'Alle') {
-      setFilters({ ...filters, class: '' });
-    } else {
-      setFilters({ ...filters, class: className });
-    }
+    const newFilters = className === 'Alle' 
+      ? { ...filters, class: '' }
+      : { ...filters, class: className };
+      
+    setFilters(newFilters);
     setShowClassDropdown(false);
     setClassSearchTerm('');
+    
+    // Notify parent component
+    if (onFilterChange) {
+      onFilterChange(newFilters);
+    }
   };
 
   const handleClearClass = (e: React.MouseEvent) => {
@@ -690,7 +747,7 @@ export function FehlzeitenPage() {
               <DropdownMenuItem>PDF exportieren</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button onClick={handleAddEntry}>
+          <Button onClick={handleAddEntry} disabled={readonly}>
             <Plus className="h-4 w-4 mr-2" />
             Fehlzeit eintragen
           </Button>
@@ -848,6 +905,7 @@ export function FehlzeitenPage() {
         sortBy={sortBy}
         sortOrder={sortOrder}
         onSort={handleSort}
+        readonly={readonly}
       />
 
       {/* Add/Edit Modal */}
@@ -860,3 +918,6 @@ export function FehlzeitenPage() {
     </div>
   );
 }
+
+// Export as both named and default for compatibility
+export default FehlzeitenPage;

@@ -1,0 +1,50 @@
+{
+  "name": "weweb-fehlzeiten-dashboard",
+  "version": "1.0.0",
+  "description": "WeWeb Component wrapper for Fehlzeiten Dashboard React application",
+  "main": "wwElement.vue",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite"
+  },
+  "keywords": [
+    "weweb",
+    "component",
+    "education",
+    "attendance",
+    "school",
+    "dashboard"
+  ],
+  "author": "FlexWise",
+  "license": "MIT",
+  "peerDependencies": {
+    "vue": "^3.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.0.0",
+    "@vitejs/plugin-react-swc": "^3.10.2",
+    "vite": "^5.4.19"
+  },
+  "files": [
+    "wwElement.vue",
+    "ww-config.js",
+    "FehlzeitenPageWrapper.js",
+    "src/**/*",
+    "package.json",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bux1989/Fehlzeit.git"
+  },
+  "weweb": {
+    "componentVersion": "1.0.0",
+    "framework": "vue3",
+    "dependencies": {
+      "react": "^18.0.0",
+      "react-dom": "^18.0.0"
+    }
+  }
+}
