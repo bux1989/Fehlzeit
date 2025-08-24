@@ -60,52 +60,68 @@ export default {
 
     const handleButtonClick = () => {
       if (isEditing.value) return;
+      console.log('[ReactMountStep1] Button clicked!');
       emit('trigger-event', { name: 'buttonClick', event: { message: 'Button clicked!' } });
     };
 
     onMounted(() => {
-      // Detect UMD React availability
+      console.log('[ReactMountStep1] onMounted — checking for React globals…');
+
       const hasReact = typeof window !== 'undefined'
         && window.React
         && window.ReactDOM
         && typeof window.ReactDOM.createRoot === 'function';
 
       reactAvailable.value = !!hasReact;
+      console.log('[ReactMountStep1] React available?', hasReact);
+
       emit('trigger-event', { name: 'reactReady', event: { available: !!hasReact } });
 
       if (!hasReact) {
-        // No React on the page -> keep placeholder, no error
+        console.warn('[ReactMountStep1] No React detected on window — keeping Vue placeholder.');
         return;
       }
 
-      // Mount a tiny React element (debug only)
       try {
         const el = reactContainer.value;
-        if (!el) return;
+        if (!el) {
+          console.error('[ReactMountStep1] No reactContainer element found!');
+          return;
+        }
 
+        console.log('[ReactMountStep1] Creating React root…');
         reactRoot = window.ReactDOM.createRoot(el);
+
         const Hello = () =>
           window.React.createElement('div', { className: 'p-2' }, 'Hello from React (Step 1)');
         const tree = window.React.createElement(Hello);
 
+        console.log('[ReactMountStep1] Rendering React element…');
         reactRoot.render(tree);
         reactMounted.value = true;
+
+        console.log('[ReactMountStep1] React mounted successfully.');
         emit('trigger-event', { name: 'reactMounted', event: { mounted: true } });
       } catch (e) {
         errorState.value = `React mount failed: ${e?.message || String(e)}`;
+        console.error('[ReactMountStep1] React mount failed:', e);
         emit('trigger-event', { name: 'error', event: { error: errorState.value } });
       }
     });
 
     onBeforeUnmount(() => {
+      console.log('[ReactMountStep1] onBeforeUnmount');
       try {
         if (reactRoot) {
+          console.log('[ReactMountStep1] Unmounting React root…');
           reactRoot.unmount?.();
           reactRoot = null;
           reactMounted.value = false;
           emit('trigger-event', { name: 'reactMounted', event: { mounted: false } });
         }
-      } catch (_) {}
+      } catch (e) {
+        console.error('[ReactMountStep1] Error during unmount:', e);
+      }
     });
 
     return {
@@ -119,6 +135,7 @@ export default {
   }
 };
 </script>
+
 
 <style scoped>
 .react-app-wrapper { width: 100%; min-height: 200px; position: relative; }
