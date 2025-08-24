@@ -35,6 +35,7 @@ interface FehlzeitenTableProps {
   sortBy: string;
   sortOrder: 'asc' | 'desc';
   onSort: (field: string) => void;
+  readonly?: boolean;
 }
 
 function StatusPill({ status, endDate, isMultiDay }: { 
@@ -191,7 +192,7 @@ function SortableHeader({
   );
 }
 
-export function FehlzeitenTable({ data, onEdit, onDelete, sortBy, sortOrder, onSort }: FehlzeitenTableProps) {
+export function FehlzeitenTable({ data, onEdit, onDelete, sortBy, sortOrder, onSort, readonly = false }: FehlzeitenTableProps) {
   const [selectedEntry, setSelectedEntry] = useState<FehlzeitEntry | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
@@ -299,6 +300,7 @@ export function FehlzeitenTable({ data, onEdit, onDelete, sortBy, sortOrder, onS
         onClose={handleCloseDetailModal}
         onEdit={onEdit}
         onDelete={onDelete}
+        readonly={readonly}
       />
     </Card>
   );
