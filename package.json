@@ -1,0 +1,37 @@
+{
+  "name": "@flexwise/fehlzeiten-component",
+  "version": "1.0.0",
+  "description": "Fehlzeiten (Absences) management component for WeWeb - A comprehensive teacher/admin interface for managing student absences with role-based permissions",
+  "main": "wwElement.vue",
+  "keywords": [
+    "weweb",
+    "component",
+    "education",
+    "absences",
+    "student-management",
+    "teacher-dashboard",
+    "school-administration"
+  ],
+  "author": "FlexWise Team",
+  "license": "MIT",
+  "dependencies": {
+    "vue": "^3.3.0",
+    "lucide-vue-next": "^0.263.1"
+  },
+  "peerDependencies": {
+    "vue": "^3.3.0"
+  },
+  "weweb": {
+    "componentType": "element",
+    "category": "Education",
+    "icon": "users",
+    "isContainer": false
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flexwise/fehlzeiten-component"
+  },
+  "bugs": {
+    "url": "https://github.com/flexwise/fehlzeiten-component/issues"
+  }
+}
