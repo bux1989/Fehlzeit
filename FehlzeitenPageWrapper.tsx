@@ -1,47 +1,42 @@
 import React from 'react';
 
-// Import the main component without the extension to let the bundler handle it
-import { FehlzeitenPage } from './src/components/FehlzeitenPage';
+// Import a placeholder component to avoid build errors
+// We'll handle the actual component loading in the render function
+let FehlzeitenPage;
 
-// Import the CSS - this might be causing issues in WeWeb
-// Let's make it conditional
+// Attempt to load the actual component
 try {
-  import('./src/index.css');
+  // Use a relative path that's more likely to work in WeWeb
+  const FehlzeitenPageModule = require('./components/FehlzeitenPage');
+  FehlzeitenPage = FehlzeitenPageModule.FehlzeitenPage || FehlzeitenPageModule.default;
 } catch (error) {
-  console.warn('Could not load CSS, styles might not work correctly:', error);
+  console.error('Failed to load FehlzeitenPage component:', error);
+  // Create a placeholder component if the real one fails to load
+  FehlzeitenPage = (props) => (
+    <div style={{ padding: '2rem', border: '1px solid 
+                    #ccc', background: '
+                    #f8f8f8' }}>
+      <h3>Fehlzeiten Dashboard</h3>
+      <p>Component could not be loaded. Please check the console for errors.</p>
+    </div>
+  );
 }
 
-interface FehlzeitenPageWrapperProps {
-  data?: any[];
-  availableClasses?: string[];
-  currentUser?: any;
-  readonly?: boolean;
-  onAddEntry?: () => void;
-  onEditEntry?: (entry: any) => void;
-  onDeleteEntry?: (entryId: string) => void;
-  onFilterChange?: (filters: any) => void;
-  onSortChange?: (sortConfig: any) => void;
-  onError?: (error: any) => void;
-}
+// Simplified props definition without TypeScript interface
+function FehlzeitenPageWrapper(props) {
+  const {
+    data = [],
+    availableClasses = [],
+    currentUser = null,
+    readonly = false,
+    onAddEntry,
+    onEditEntry,
+    onDeleteEntry,
+    onFilterChange,
+    onSortChange,
+    onError
+  } = props;
 
-/**
- * React Bridge Component for WeWeb
- * 
- * This component serves as a bridge between the WeWeb Vue component and the React application.
- * It handles prop mapping and event forwarding between the two frameworks.
- */
-function FehlzeitenPageWrapper({
-  data = [],
-  availableClasses = [],
-  currentUser = null,
-  readonly = false,
-  onAddEntry,
-  onEditEntry,
-  onDeleteEntry,
-  onFilterChange,
-  onSortChange,
-  onError
-}: FehlzeitenPageWrapperProps) {
   // Handle Add Entry
   const handleAddEntry = () => {
     if (onAddEntry) {
@@ -50,35 +45,35 @@ function FehlzeitenPageWrapper({
   };
 
   // Handle Edit Entry
-  const handleEditEntry = (entry: any) => {
+  const handleEditEntry = (entry) => {
     if (onEditEntry) {
       onEditEntry(entry);
     }
   };
 
   // Handle Delete Entry
-  const handleDeleteEntry = (entryId: string) => {
+  const handleDeleteEntry = (entryId) => {
     if (onDeleteEntry) {
       onDeleteEntry(entryId);
     }
   };
 
   // Handle Filter Change
-  const handleFilterChange = (filters: any) => {
+  const handleFilterChange = (filters) => {
     if (onFilterChange) {
       onFilterChange(filters);
     }
   };
 
   // Handle Sort Change
-  const handleSortChange = (sortConfig: any) => {
+  const handleSortChange = (sortConfig) => {
     if (onSortChange) {
       onSortChange(sortConfig);
     }
   };
 
   // Handle Error
-  const handleError = (error: any) => {
+  const handleError = (error) => {
     if (onError) {
       onError(error);
     }
@@ -90,10 +85,10 @@ function FehlzeitenPageWrapper({
     initialData: data,
     availableClasses,
     currentUser,
-    
+
     // Configuration props
     readonly,
-    
+
     // Event handlers
     onAddEntry: handleAddEntry,
     onEditEntry: handleEditEntry,
@@ -108,7 +103,8 @@ function FehlzeitenPageWrapper({
   } catch (error) {
     console.error('Error rendering FehlzeitenPage:', error);
     return React.createElement('div', { 
-      style: { padding: '2rem', border: '1px solid red', background: '#ffeeee' } 
+      style: { padding: '2rem', border: '1px solid red', background: '
+                    #ffeeee' } 
     }, `Error loading component: ${error.message}`);
   }
 }
